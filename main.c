@@ -3,6 +3,13 @@
 #include <netinet/in.h>
 
 #define PORT 3000
+#define MAX_REQUEST_SIZE 2000
+
+void handle_request(int client_fd){
+    char request[MAX_REQUEST_SIZE];
+
+    ssize_t request_size = recv(client_fd, request, MAX_REQUEST_SIZE, NULL);
+}
 
 void server_shutdown(int server_fd){
     printf("Shutting down server...\n");
@@ -40,6 +47,9 @@ int main(int argc, char **argv){
             fprintf(stderr, "Error accepting connection!\n");
             server_shutdown(server_fd);
         }
+
+        // handle the client request
+        handle_request(client_fd);
     }
 
     return 0;
