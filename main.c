@@ -21,8 +21,14 @@ int main(int argc, char **argv){
     server_addr.sin_addr.s_addr = INADDR_ANY;
 
     // bind address and port to socket
-    if(bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0){
+    if(bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1){
         fprintf(stderr, "Error binding address and port to socket!/n");
+        server_shutdown(server_fd);
+    }
+
+    // listen for connections
+    if(listen(server_fd, 1) == -1){
+        fprintf(stderr, "Error listening for connections!\n");
         server_shutdown(server_fd);
     }
 
