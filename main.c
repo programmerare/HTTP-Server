@@ -32,5 +32,15 @@ int main(int argc, char **argv){
         server_shutdown(server_fd);
     }
 
+    // accept connections
+    while(1){
+        struct sockaddr_in client_addr;
+        int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, sizeof(client_addr));
+        if(client_fd == -1){
+            fprintf(stderr, "Error accepting connection!\n");
+            server_shutdown(server_fd);
+        }
+    }
+
     return 0;
 }
