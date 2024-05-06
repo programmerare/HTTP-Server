@@ -7,6 +7,7 @@
 
 #define PORT 8080
 #define MAX_REQUEST_SIZE 2000
+#define MAX_URL_SIZE 100
 
 int server_fd;
 
@@ -14,9 +15,24 @@ void parse_request(char *request){
     regex_t regex;
     regcomp(&regex, "^GET /([^ ]*) HTTP/1", REG_EXTENDED);
 
-    if(regexec(&regex, request, 0, NULL, 0) == 0){
+    size_t nmatch = 2;
+    regmatch_t pmatch[2];
+
+    char url[MAX_URL_SIZE];
+
+    if(regexec(&regex, request, nmatch, pmatch, 0) == 0){
         printf("Determined GET request!\n");
+        // extract url from the request
+        if(pmatch[1].rm_so != -1 && pmatch[1].rm_eo != -1) {
+            int start = pmatch[1].rm_so - 1;
+            int end = pmatch[1].rm_eo;
+            snprintf(url, MAX_URL_SIZE, "%.*s", end - start, request + start);
+        }
     }
+
+    printf("%s\n", url);
+
+    regfree(&regex);
 }
 
 void handle_request(int client_fd){
@@ -24,6 +40,7 @@ void handle_request(int client_fd){
 
     ssize_t request_size = recv(client_fd, request, MAX_REQUEST_SIZE, 0);
     printf("%s\n", request);
+    parse_request(request);
 }
 
 void server_shutdown(){
