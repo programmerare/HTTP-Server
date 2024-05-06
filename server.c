@@ -1,9 +1,23 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <regex.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#define PORT 3000
+#define PORT 8080
 #define MAX_REQUEST_SIZE 2000
+
+int server_fd;
+
+void parse_request(char *request){
+    regex_t regex;
+    regcomp(&regex, "^GET /([^ ]*) HTTP/1", REG_EXTENDED);
+
+    if(regexec(&regex, request, 0, NULL, 0) == 0){
+        printf("Determined GET request!\n");
+    }
+}
 
 void handle_request(int client_fd){
     char request[MAX_REQUEST_SIZE];
@@ -12,15 +26,20 @@ void handle_request(int client_fd){
     printf("%s\n", request);
 }
 
-void server_shutdown(int server_fd){
-    printf("Shutting down server...\n");
+void server_shutdown(){
+    printf("\nShutting down server...\n");
     shutdown(server_fd, SHUT_RDWR);
+    exit(0);
 }
 
 int main(int argc, char **argv){
 
+    // signal handler for termination
+    signal(SIGTERM, server_shutdown);
+    signal(SIGINT, server_shutdown);
+
     // create a socket
-    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
 
     // specify address and port
     struct sockaddr_in server_addr;
@@ -30,15 +49,15 @@ int main(int argc, char **argv){
 
     // bind address and port to socket
     if(bind(server_fd, (struct sockaddr*)&server_addr, (socklen_t)sizeof(server_addr)) == -1){
-        fprintf(stderr, "Error binding address and port to socket!/n");
-        server_shutdown(server_fd);
+        fprintf(stderr, "Error binding address and port to socket!\n");
+        server_shutdown();
     }
 
     // listen for connections
     printf("Listening for connections...\n");
     if(listen(server_fd, 1) == -1){
         fprintf(stderr, "Error listening for connections!\n");
-        server_shutdown(server_fd);
+        server_shutdown();
     }
 
     // accept connections
@@ -49,7 +68,7 @@ int main(int argc, char **argv){
 
         if(client_fd == -1){
             fprintf(stderr, "Error accepting connection!\n");
-            server_shutdown(server_fd);
+            server_shutdown();
             break;
         }
         printf("Accepted connection!\n");
