@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <regex.h>
 #include <signal.h>
@@ -7,6 +8,8 @@
 
 #define PORT 8080
 #define MAX_REQUEST_SIZE 2000
+#define RESPONSE_HEAD_SIZE 200
+#define RESPONSE_CONTENT_SIZE 2000
 #define MAX_URL_SIZE 100
 
 int server_fd;
@@ -31,9 +34,8 @@ void parse_request(char *request, char *url){
     size_t nmatch = 2;
     regmatch_t pmatch[2];
 
-
     if(regexec(&regex, request, nmatch, pmatch, 0) == 0){
-        printf("Determined GET request!\n");
+        printf("Determined GET request for ");
         // extract url from the request
         if(pmatch[1].rm_so != -1 && pmatch[1].rm_eo != -1) {
             int start = pmatch[1].rm_so - 1;
@@ -42,9 +44,56 @@ void parse_request(char *request, char *url){
         }
     }
 
-    printf("%s\n", url);
+    printf("'%s'\n", url);
 
     regfree(&regex);
+}
+
+void parse_file_extension(char *dest, char *str){
+
+}
+
+/*
+    send_response
+    ---------------------
+    Description:
+    Reads in the content of the requested file, sends a response header and a response body containing the files content.
+    If the file does not exist a response header with 404 error code is send to the client.
+
+    Parameters:
+    int client_fd: An integer working as a file descriptor. It is an identifier for the client's socket
+    char *filename: A string holding the name of the file to be opened
+
+    return:
+    void: This function does not return a value
+*/
+void send_response(int client_fd, char *filename){
+    char response_header[RESPONSE_HEAD_SIZE];
+    char response_content[RESPONSE_CONTENT_SIZE];
+
+    FILE *fp = fopen(filename, "r");
+    size_t file_size;
+    size_t read_bytes = 0;
+
+    if(fp == NULL){
+        printf("Requested file not found!\n");
+        snprintf(response_header, RESPONSE_HEAD_SIZE, "HTTP/1.1 404 not found\r\nContent-Type: text/html\r\nContent-Length:%d\r\n\r\n", 0);
+        send(client_fd, response_header, RESPONSE_HEAD_SIZE, 0);
+        return;
+    }
+    else{
+        // read in file content
+        read_bytes = fread(response_content, 1, RESPONSE_CONTENT_SIZE, fp);
+        response_content[read_bytes] = '\0';
+        fclose(fp);
+    }
+
+    // send response header
+    snprintf(response_header, RESPONSE_HEAD_SIZE, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %zu\r\n\r\n", read_bytes);
+    send(client_fd, response_header, strlen(response_header), 0);
+
+    // send response content
+    send(client_fd, response_content, read_bytes, 0);
 }
 
 /*
@@ -65,8 +114,20 @@ void handle_request(int client_fd){
     char url[MAX_URL_SIZE];
 
     ssize_t request_size = recv(client_fd, request, MAX_REQUEST_SIZE, 0);
-    printf("%s\n", request);
     parse_request(request, url);
+
+    if((strcmp(url, "/")) == 0){
+        send_response(client_fd, "index.html");
+    }
+    else if((strcmp(url, "/contact")) == 0){
+        send_response(client_fd, "contact.html");
+    }
+    else if((strcmp(url, "/styles.css")) == 0){
+        send_response(client_fd, "styles.css");
+    }
+    else{
+        send_response(client_fd, "404");
+    }
 }
 
 /*
