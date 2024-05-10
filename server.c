@@ -49,8 +49,8 @@ void parse_request(char *request, char *url){
     regfree(&regex);
 }
 
-void parse_file_extension(char *dest, char *str){
-
+void parse_file_extension(char **dest, char *filename){
+    *dest = strrchr(filename, '.') + 1;
 }
 
 /*
@@ -68,6 +68,7 @@ void parse_file_extension(char *dest, char *str){
     void: This function does not return a value
 */
 void send_response(int client_fd, char *filename){
+    printf("\nFILE-------\n%s\n---^^^^^^---\n", filename);
     char response_header[RESPONSE_HEAD_SIZE];
     char response_content[RESPONSE_CONTENT_SIZE];
 
@@ -81,16 +82,26 @@ void send_response(int client_fd, char *filename){
         send(client_fd, response_header, RESPONSE_HEAD_SIZE, 0);
         return;
     }
-    else{
-        // read in file content
-        read_bytes = fread(response_content, 1, RESPONSE_CONTENT_SIZE, fp);
-        response_content[read_bytes] = '\0';
-        fclose(fp);
-    }
 
-    // send response header
-    snprintf(response_header, RESPONSE_HEAD_SIZE, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %zu\r\n\r\n", read_bytes);
-    send(client_fd, response_header, strlen(response_header), 0);
+    // read in file content
+    read_bytes = fread(response_content, 1, RESPONSE_CONTENT_SIZE, fp);
+    response_content[read_bytes] = '\0';
+    fclose(fp);
+
+    // retrieve file extension
+    char *file_extension;
+    parse_file_extension(&file_extension, filename);
+
+    if((strcmp(file_extension, "html")) == 0){
+        // send response header
+        snprintf(response_header, RESPONSE_HEAD_SIZE, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %zu\r\n\r\n", read_bytes);
+        send(client_fd, response_header, strlen(response_header), 0);
+    }
+    else if((strcmp(file_extension, "css")) == 0){
+        // send response header
+        snprintf(response_header, RESPONSE_HEAD_SIZE, "HTTP/1.1 200 OK\r\nContent-Type: text/css\r\nContent-Length: %zu\r\n\r\n", read_bytes);
+        send(client_fd, response_header, strlen(response_header), 0);
+    }
 
     // send response content
     send(client_fd, response_content, read_bytes, 0);
@@ -114,7 +125,10 @@ void handle_request(int client_fd){
     char url[MAX_URL_SIZE];
 
     ssize_t request_size = recv(client_fd, request, MAX_REQUEST_SIZE, 0);
+    printf("\nREQUEST------\n%s\n---^^^^^^^---\n", request);    // REMOVE
+    printf("\nURL-before---\n%s\n---^^^^^^^---\n", url);        // REMOVE
     parse_request(request, url);
+    printf("\nURL-after----\n%s\n---^^^^^^^---\n", url);        // REMOVE
 
     if((strcmp(url, "/")) == 0){
         send_response(client_fd, "index.html");
