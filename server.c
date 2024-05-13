@@ -131,13 +131,13 @@ void handle_request(int client_fd){
     printf("\nURL-after----\n%s\n---^^^^^^^---\n", url);        // REMOVE
 
     if((strcmp(url, "/")) == 0){
-        send_response(client_fd, "index.html");
+        send_response(client_fd, "views/index.html");
     }
     else if((strcmp(url, "/contact")) == 0){
-        send_response(client_fd, "contact.html");
+        send_response(client_fd, "views/contact.html");
     }
     else if((strcmp(url, "/styles.css")) == 0){
-        send_response(client_fd, "styles.css");
+        send_response(client_fd, "public/css/styles.css");
     }
     else{
         send_response(client_fd, "404");
