@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <pthread.h>
 
 #define PORT 8080
 #define MAX_REQUEST_SIZE 2000
@@ -49,6 +50,19 @@ void parse_request(char *request, char *url){
     regfree(&regex);
 }
 
+/*
+    parse_file_extension
+    ---------------------
+    Description:
+    Returns the file extension of a given filename excluding '.'
+
+    Parameter:
+    char **dest: The destination where to the file extension will be stored
+    char *filename: A string containing the filename
+
+    Return:
+    void: This function does not return a value
+*/
 void parse_file_extension(char **dest, char *filename){
     *dest = strrchr(filename, '.') + 1;
 }
@@ -120,7 +134,9 @@ void send_response(int client_fd, char *filename){
     Return:
     void: This function does not return a value
 */
-void handle_request(int client_fd){
+void handle_request(void *arg){
+    int client_fd = *((int*)arg);
+
     char request[MAX_REQUEST_SIZE];
     char url[MAX_URL_SIZE];
 
@@ -142,6 +158,9 @@ void handle_request(int client_fd){
     else{
         send_response(client_fd, "404");
     }
+
+    printf("Shutting down client socket!\n");
+    shutdown(client_fd, SHUT_RDWR);
 }
 
 /*
@@ -187,7 +206,7 @@ int main(int argc, char **argv){
 
     // listen for connections
     printf("Listening for connections...\n");
-    if(listen(server_fd, 1) == -1){
+    if(listen(server_fd, 10) == -1){
         fprintf(stderr, "Error listening for connections!\n");
         server_shutdown();
     }
@@ -206,10 +225,9 @@ int main(int argc, char **argv){
         printf("Accepted connection!\n");
 
         // handle the client request
-        handle_request(client_fd);
-
-        printf("Shutting down client socket!\n");
-        shutdown(client_fd, SHUT_RDWR);
+        pthread_t thread;
+        pthread_create(&thread, NULL, (void*)handle_request, (void*)&client_fd);
+        pthread_detach(thread);
     }
 
     return 0;
