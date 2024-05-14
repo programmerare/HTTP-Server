@@ -82,7 +82,6 @@ void parse_file_extension(char **dest, char *filename){
     void: This function does not return a value
 */
 void send_response(int client_fd, char *filename){
-    printf("\nFILE-------\n%s\n---^^^^^^---\n", filename);
     char response_header[RESPONSE_HEAD_SIZE];
     char response_content[RESPONSE_CONTENT_SIZE];
 
@@ -141,10 +140,7 @@ void handle_request(void *arg){
     char url[MAX_URL_SIZE];
 
     ssize_t request_size = recv(client_fd, request, MAX_REQUEST_SIZE, 0);
-    printf("\nREQUEST------\n%s\n---^^^^^^^---\n", request);    // REMOVE
-    printf("\nURL-before---\n%s\n---^^^^^^^---\n", url);        // REMOVE
     parse_request(request, url);
-    printf("\nURL-after----\n%s\n---^^^^^^^---\n", url);        // REMOVE
 
     if((strcmp(url, "/")) == 0){
         send_response(client_fd, "views/index.html");
