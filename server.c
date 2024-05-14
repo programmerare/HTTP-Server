@@ -218,7 +218,7 @@ int main(int argc, char **argv){
             server_shutdown();
             break;
         }
-        printf("Accepted connection!\n");
+        printf("User connected!\n");
 
         // handle the client request
         pthread_t thread;
