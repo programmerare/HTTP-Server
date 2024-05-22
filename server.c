@@ -81,11 +81,11 @@ void parse_file_extension(char **dest, char *filename){
     return:
     void: This function does not return a value
 */
-void send_response(int client_fd, char *filename){
+void send_response(int client_fd, char *path){
     char response_header[RESPONSE_HEAD_SIZE];
     char response_content[RESPONSE_CONTENT_SIZE];
 
-    FILE *fp = fopen(filename, "r");
+    FILE *fp = fopen(path, "r");
     size_t file_size;
     size_t read_bytes = 0;
 
@@ -103,7 +103,7 @@ void send_response(int client_fd, char *filename){
 
     // retrieve file extension
     char *file_extension;
-    parse_file_extension(&file_extension, filename);
+    parse_file_extension(&file_extension, path);
 
     if((strcmp(file_extension, "html")) == 0){
         // send response header
@@ -126,12 +126,13 @@ void send_response(int client_fd, char *filename){
     Description:
     This function recieves an http request using the recv function from the sys/socket library and reads it into a buffer.
     It then calls the parse_request function on the request and retrieves the extracted url.
+    Depending on the url it will call the send_response function.
 
     Parameter:
-    int client_fd: An integer working as a file descriptor. It is an identifier for the client's socket
+    void *arg: A void pointer pointing to the clients file descriptor. It is an identifier for the client's socket.
 
     Return:
-    void: This function does not return a value
+    void: This function does not return a value.
 */
 void handle_request(void *arg){
     int client_fd = *((int*)arg);
