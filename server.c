@@ -6,12 +6,19 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <curl/curl.h>
+
 
 #define PORT 8080
 #define MAX_REQUEST_SIZE 2000
+#define MAX_REQUEST_BODY_SIZE 2000
 #define RESPONSE_HEAD_SIZE 200
 #define RESPONSE_CONTENT_SIZE 2000
 #define MAX_URL_SIZE 100
+
+// Methods
+#define GET 1
+#define POST 2
 
 int server_fd;
 
@@ -24,28 +31,76 @@ int server_fd;
     Parameter:
     char *request: A pointer to a string containing an http-request
     char *url: A pointer to a string where the extracted url will be stored
+    int *method: A pointer to an integer where the determined method will be stored
 
     Return:
     void: The function does not return a value
 */
-void parse_request(char *request, char *url){
+void parse_request(char *request, char *url, int *method){
+    regex_t regex_get;
+    regcomp(&regex_get, "^GET /([^ ]*) HTTP/1", REG_EXTENDED);
+
+    regex_t regex_post;
+    regcomp(&regex_post, "^POST /([^ ]*) HTTP/1", REG_EXTENDED);
+
+    size_t nmatch = 2;
+    regmatch_t pmatch[2];
+
+    if(regexec(&regex_get, request, nmatch, pmatch, 0) == 0){
+        printf("Determined GET request for ");
+        *method = GET;
+    }
+    else if(regexec(&regex_post, request, nmatch, pmatch, 0) == 0){
+        printf("Determined POST request for ");
+        *method = POST;
+    }
+
+    // extract url from the request
+    if(pmatch[1].rm_so != -1 && pmatch[1].rm_eo != -1) {
+        int start = pmatch[1].rm_so - 1;
+        int end = pmatch[1].rm_eo;
+        snprintf(url, MAX_URL_SIZE, "%.*s", end - start, request + start);
+    }
+
+    printf("'%s'\n", url);
+
+    regfree(&regex_get);
+    regfree(&regex_post);
+}
+
+/*
+    extract_body_content
+    --------------------
+*/
+void extract_body_content(char *request, char *content){
+    printf(">>>Request:\n%s\n", request);
     regex_t regex;
-    regcomp(&regex, "^GET /([^ ]*) HTTP/1", REG_EXTENDED);
+    regcomp(&regex, "text=(.*)", REG_EXTENDED);
 
     size_t nmatch = 2;
     regmatch_t pmatch[2];
 
     if(regexec(&regex, request, nmatch, pmatch, 0) == 0){
-        printf("Determined GET request for ");
-        // extract url from the request
-        if(pmatch[1].rm_so != -1 && pmatch[1].rm_eo != -1) {
-            int start = pmatch[1].rm_so - 1;
-            int end = pmatch[1].rm_eo;
-            snprintf(url, MAX_URL_SIZE, "%.*s", end - start, request + start);
-        }
+        printf("%s\n", ">>>Request body content:");
     }
 
-    printf("'%s'\n", url);
+    if(pmatch[1].rm_so != -1 && pmatch[1].rm_eo != -1) {
+        int start = pmatch[1].rm_so;
+        int end = pmatch[1].rm_eo;
+        snprintf(content, MAX_REQUEST_BODY_SIZE, "%.*s", end - start, request + start);
+    }
+
+    // decode url encoded content
+    CURL *curl = curl_easy_init();
+    if(curl){
+        int decodelen;
+        char *decoded = curl_easy_unescape(curl, content, 0, &decodelen);
+        if(decoded){
+            printf("%s\n", decoded);
+            curl_free(decoded);
+        }
+        curl_easy_cleanup(curl);
+    }
 
     regfree(&regex);
 }
@@ -139,21 +194,31 @@ void handle_request(void *arg){
 
     char request[MAX_REQUEST_SIZE];
     char url[MAX_URL_SIZE];
+    int method;
+    char body_content[MAX_REQUEST_BODY_SIZE];
 
     ssize_t request_size = recv(client_fd, request, MAX_REQUEST_SIZE, 0);
-    parse_request(request, url);
+    parse_request(request, url, &method);
 
-    if((strcmp(url, "/")) == 0){
-        send_response(client_fd, "views/index.html");
-    }
-    else if((strcmp(url, "/contact")) == 0){
-        send_response(client_fd, "views/contact.html");
-    }
-    else if((strcmp(url, "/styles.css")) == 0){
-        send_response(client_fd, "public/css/styles.css");
-    }
-    else{
-        send_response(client_fd, "404");
+    switch(method){
+        case GET:
+            if((strcmp(url, "/")) == 0){
+                send_response(client_fd, "views/index.html");
+            }
+            else if((strcmp(url, "/contact")) == 0){
+                send_response(client_fd, "views/contact.html");
+            }
+            else if((strcmp(url, "/styles.css")) == 0){
+                send_response(client_fd, "public/css/styles.css");
+            }
+            else{
+                send_response(client_fd, "404");
+            }
+            break;
+        case POST:
+            if((strcmp(url, "/contact")) == 0){
+                extract_body_content(request, body_content);
+            }
     }
 
     printf("Shutting down client socket!\n");
